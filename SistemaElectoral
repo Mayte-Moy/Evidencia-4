@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SistemaElectoral {
+
+    address public administrador;
+    address public ganador;
+    uint256 public totalVotos;
+
+    enum Estado { Inicial, EnCurso, Finalizada }
+    Estado public estado;
+
+    struct Candidato {
+        string nombre;
+        uint256 votos;
+    }
+
+    mapping(address => bool ) public votantes;
+    mapping(uint256 => Candidato) public candidatos;
+
+    event VotoRegistrado(address votante, uint256 candidatoElegido);
+    event EleccionFinalizada(address ganador);
+
+    modifier soloAdministrador() {
+        require(msg.sender == administrador, "Solo el administrador puede realizar esta operacion");
+        _;
+    }
+
+    modifier soloEnCurso() {
+        require(estado == Estado.EnCurso, "La eleccion no esta en curso");
+        _;
+    }
+
+    modifier soloNoVotante() {
+        require(!votantes[msg.sender], "Ya has votado");
+        _;
+    }
+
+    constructor(string memory nombreCandidato1, string memory nombreCandidato2) {
+        administrador = msg.sender;
+        estado = Estado.Inicial;
+
+        candidatos[1] = Candidato(nombreCandidato1, 0);
+        candidatos[2] = Candidato(nombreCandidato2, 0);
+    }
+
+    function iniciarEleccion() external soloAdministrador {
+        require(estado == Estado.Inicial, "La eleccion ya ha comenzado o ha finalizado");
+        estado = Estado.EnCurso;
+    }
+
+    function votar(uint256 candidatoElegido) external soloEnCurso soloNoVotante {
+        require(candidatoElegido == 1 || candidatoElegido == 2, "Candidato no valido");
+        
+        votantes[msg.sender] = true;
+        candidatos[candidatoElegido].votos++;
+        totalVotos++;
+
+        emit VotoRegistrado(msg.sender, candidatoElegido);
+    }
+
+    function finalizarEleccion() external soloAdministrador soloEnCurso {
+        require(totalVotos > 0, "No hay votos registrados");
+        
+        if (candidatos[1].votos > candidatos[2].votos) {
+            ganador = msg.sender;
+        } else if (candidatos[1].votos < candidatos[2].votos) {
+            ganador = msg.sender;
+        } else {
+            // Empate, se podría manejar de manera específica
+            ganador = address(0);
+        }
+
+        estado = Estado.Finalizada;
+
+        emit EleccionFinalizada(ganador);
+    }
+}
